@@ -59,7 +59,7 @@ export default function Dashboard() {
                 </h3>
                 <div className="flex items-end justify-between mt-auto">
                   <span className="text-[30px] font-bold leading-tight text-on-surface">
-                    {loading ? '—' : value}
+                    {loading ? <span className="text-outline animate-pulse">loading...</span> : value}
                   </span>
                   <span className="text-[14px] font-semibold text-primary flex items-center bg-primary-fixed py-1 px-2 rounded-full">
                     <span className="material-symbols-outlined text-[16px] mr-1">show_chart</span>
