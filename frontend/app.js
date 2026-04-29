@@ -1,10 +1,11 @@
 'use strict';
 
 // ─── API ──────────────────────────────────────────────────────────────────────
+const API_BASE = 'http://localhost:8000';
 const api = {
-  _get(path) { return fetch(path).then(r => r.json()); },
+  _get(path) { return fetch(API_BASE + path).then(r => r.json()); },
   _post(path, body) {
-    return fetch(path, {
+    return fetch(API_BASE + path, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
