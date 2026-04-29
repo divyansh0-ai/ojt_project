@@ -1,18 +1,45 @@
 import io
-import os
 import pandas as pd
+from pathlib import Path
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from db import init_db, load_dataframe, insert_dataframe, insert_transaction
 from preprocessing import clean_dataframe
 from rfm import compute_rfm
 from clustering import add_clusters
 from recommender import build_item_matrix, get_recommendations
 
-app = FastAPI()
+DATA_FILE = Path(__file__).parent.parent / "data" / "Online Retail.xlsx"
 
+_df = None
+_rfm = None
+_matrix = None
+
+
+def _load():
+    global _df, _rfm, _matrix
+    if not DATA_FILE.exists():
+        print(f"[warn] data file not found: {DATA_FILE}")
+        return
+    print("[info] loading Excel data…")
+    df = pd.read_excel(DATA_FILE)
+    df = clean_dataframe(df)
+    _rfm = add_clusters(compute_rfm(df))
+    _matrix = build_item_matrix(df)
+    _df = df
+    print(f"[info] loaded {len(_df):,} rows")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    _load()
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -20,22 +47,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-init_db()
 
-
-def get_pipeline():
-    df = load_dataframe()
-    if df.empty:
-        return None, None, None
-    rfm = compute_rfm(df)
-    rfm = add_clusters(rfm)
-    matrix = build_item_matrix(df)
-    return df, rfm, matrix
+def pipeline():
+    return _df, _rfm, _matrix
 
 
 @app.get("/api/stats")
 def stats():
-    df, _, _ = get_pipeline()
+    df, _, _ = pipeline()
     if df is None:
         return {"revenue": 0, "customers": 0, "transactions": 0}
     return {
@@ -47,7 +66,7 @@ def stats():
 
 @app.get("/api/revenue/monthly")
 def monthly_revenue():
-    df, _, _ = get_pipeline()
+    df, _, _ = pipeline()
     if df is None:
         return []
     monthly = (
@@ -63,7 +82,7 @@ def monthly_revenue():
 
 @app.get("/api/segments")
 def segments():
-    _, rfm, _ = get_pipeline()
+    _, rfm, _ = pipeline()
     if rfm is None:
         return {"averages": [], "counts": []}
     averages = (
@@ -86,7 +105,7 @@ def segments():
 
 @app.get("/api/customers/top")
 def top_customers():
-    _, rfm, _ = get_pipeline()
+    _, rfm, _ = pipeline()
     if rfm is None:
         return []
     top = (
@@ -101,7 +120,7 @@ def top_customers():
 
 @app.get("/api/products/top")
 def top_products():
-    df, _, _ = get_pipeline()
+    df, _, _ = pipeline()
     if df is None:
         return []
     top = df.groupby("Description")["Quantity"].sum().nlargest(5).reset_index()
@@ -111,7 +130,7 @@ def top_products():
 
 @app.get("/api/products")
 def products():
-    df, _, _ = get_pipeline()
+    df, _, _ = pipeline()
     if df is None:
         return []
     prods = (
@@ -129,7 +148,7 @@ class RecommendRequest(BaseModel):
 
 @app.post("/api/recommend")
 def recommend(req: RecommendRequest):
-    df, _, matrix = get_pipeline()
+    df, _, matrix = pipeline()
     if matrix is None:
         return []
     product_map = df.drop_duplicates("StockCode").set_index("StockCode")["Description"].to_dict()
@@ -141,38 +160,44 @@ def recommend(req: RecommendRequest):
 
 
 @app.post("/api/upload")
-async def upload(file: UploadFile = File(...)):
+async def upload_data(file: UploadFile = File(...)):
+    name = file.filename or ""
+    if not (name.endswith(".xlsx") or name.endswith(".xls") or name.endswith(".csv")):
+        raise HTTPException(status_code=400, detail="Only .xlsx, .xls, or .csv files are accepted.")
+
     content = await file.read()
     try:
-        if file.filename.endswith(".csv"):
+        if name.endswith(".csv"):
             df = pd.read_csv(io.BytesIO(content))
         else:
             df = pd.read_excel(io.BytesIO(content))
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Could not parse file: {e}")
+
     try:
-        df = clean_dataframe(df)
+        clean_dataframe(df)
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))
-    inserted = insert_dataframe(df)
-    return {"inserted": inserted}
+
+    DATA_FILE.parent.mkdir(parents=True, exist_ok=True)
+    with open(DATA_FILE, "wb") as f:
+        f.write(content)
+
+    _load()
+    return {"rows": len(df)}
 
 
-class TransactionIn(BaseModel):
-    customer_id:  int
-    invoice_no:   str
-    invoice_date: str
-    stock_code:   str
-    description:  str
-    quantity:     int
-    unit_price:   float
-    country:      str = ""
+@app.get("/api/datafile")
+def datafile_info():
+    if not DATA_FILE.exists():
+        return {"exists": False}
+    stat = DATA_FILE.stat()
+    return {
+        "exists": True,
+        "name": DATA_FILE.name,
+        "size_mb": round(stat.st_size / 1_048_576, 2),
+    }
 
 
-@app.post("/api/transactions")
-def add_transaction(tx: TransactionIn):
-    insert_transaction(
-        tx.customer_id, tx.invoice_no, tx.invoice_date,
-        tx.stock_code, tx.description, tx.quantity, tx.unit_price, tx.country,
-    )
-    return {"success": True}
+FRONTEND_DIR = Path(__file__).parent.parent / "frontend"
+app.mount("/", StaticFiles(directory=str(FRONTEND_DIR), html=True), name="static")

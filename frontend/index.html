@@ -1,24 +1,58 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Retail Insights</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;700;900&display=swap" rel="stylesheet" />
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
-    <style>
-      .material-symbols-outlined {
-        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
-      }
-      .icon-filled {
-        font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
-      }
-    </style>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Retail Insights</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <div id="app">
+    <nav id="sidebar">
+      <div class="sidebar-header">
+        <span class="brand">Retail Insights</span>
+      </div>
+      <ul class="nav-links">
+        <li>
+          <a href="#dashboard" class="nav-link">
+            <span class="material-symbols-outlined">dashboard</span>
+            Dashboard
+          </a>
+        </li>
+        <li>
+          <a href="#segments" class="nav-link">
+            <span class="material-symbols-outlined">group</span>
+            Customer Segments
+          </a>
+        </li>
+        <li>
+          <a href="#recommendations" class="nav-link">
+            <span class="material-symbols-outlined">lightbulb</span>
+            Recommendations
+          </a>
+        </li>
+        <li>
+          <a href="#update-data" class="nav-link">
+            <span class="material-symbols-outlined">upload_file</span>
+            Update Data
+          </a>
+        </li>
+      </ul>
+    </nav>
+
+    <div id="content-area">
+      <header id="topbar">
+        <h2 id="page-title">Dashboard Overview</h2>
+        <div class="avatar">UP</div>
+      </header>
+      <main id="page"></main>
+    </div>
+  </div>
+  <script src="app.js"></script>
+</body>
 </html>
